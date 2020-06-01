@@ -1,0 +1,8 @@
+nr_zad;wynik;czy sie pokrywa
+1;63,8;tak
+2;sinus tachycardia;tak
+3;sinus bradycardia;tak
+4;ventricular beat;tak // ale to straszne oszukanstwo jak jzu sie wie ze to mabyc  * beat XD
+5;superventricular beat;tak
+6;superventricular trigemy;tak
+7; atruak fibrilation; nie // sprytne.. 
