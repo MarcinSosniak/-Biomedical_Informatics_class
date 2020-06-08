@@ -5,7 +5,7 @@ import tkinter as tk
 dc = DeviceController()
 dc.start()
 examinator = Examinator()
-dc.set_callback(examinator.get_callback())
+dc.set_examinator_callback(examinator.get_callback())
 
 
 window =tk.Tk()

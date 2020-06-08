@@ -9,7 +9,7 @@ dc.start()
 while True:
     void = input(">")
     examinator = Examinator()
-    dc.set_callback(examinator.get_callback())
+    dc.set_examinator_callback(examinator.get_callback())
     print("starting examination")
     examinator.start_examination()
     while not examinator.f_examination_finished():

@@ -1,28 +1,63 @@
 import threading
 import serial
 import time
+from get_com_list import get_coms_list
+import statistics
 
 
 class DeviceController(threading.Thread):
+    SINGLE_PORT_MAX_SCAN_TIME = 2.0
+    DEVICE_TAG  = 'ESP32TERM'
     def __init__(self):
         threading.Thread.__init__(self)
         self.stable_derative = 0.05
-        self.COM = self._com_scanner()
+        self.COM = 'COM3'
         self.line = None
         self.points= []
         self.time_stamps = []
         self.derivatives = []
-        self.callback = None
+        self.examinator_callback = None
+        self.scanner_callback = None
 
-    def set_callback(self,callback):
-        self.callback=callback
-    def _com_scanner(self):
-        return 'COM3'
+    def set_examinator_callback(self, callback):
+        self.examinator_callback = callback
+
+    def set_scanner_callback(self,callback):
+        self.scanner_callback = callback
+
+    def get_com_length(self):
+        return len(get_coms_list())
+
+    def com_scanner(self):
+        coms = get_coms_list()
+        for com in coms:
+            try:
+                print('Scanning COM : {}'.format(com))
+                ser = serial.Serial(timeout=0)
+                t0 = time.time()
+                ser.baudrate = 115200
+                ser.port = com
+                ser.open()
+                data_gathered = []
+                while  time.time() - t0 <  DeviceController.SINGLE_PORT_MAX_SCAN_TIME:
+                    chars = ser.read(2000)
+                    # print(chars)
+                    data_gathered.append(chars)
+                    # print(data_gathered)
+                    # print( b''.join(data_gathered).decode('ASCII'))
+                    if DeviceController.DEVICE_TAG in  b''.join(data_gathered).decode('ASCII'):
+                        self.COM = com
+                    return
+            except Exception as e:
+                print(str(e))
+                pass
+            self.scanner_callback()
+        raise ValueError('COM_NOT_FOUND')
 
     def run(self):
         ser = serial.Serial()
         ser.baudrate = 115200
-        ser.port = 'COM3'
+        ser.port = self.COM
         ser.open()
         tmp_line = []
         while True:
@@ -45,16 +80,17 @@ class DeviceController(threading.Thread):
         self.points.append(val)
         self.time_stamps.append(time.time())
         self.derivatives.append(derivative)
-        if self.callback is not None:
-            self.callback(val,derivative)
+        if self.examinator_callback is not None:
+            self.examinator_callback(val, derivative)
 
 class Examinator():
     __MINIMAL_TEST_TIME = 15.0
     __DERIVATIVE_EPSILON = 0.01
-    __MAXIMAL_TEST_TIME = 60.0
+    __MAXIMAL_TEST_TIME = 240.0
     __N_LAST_DERIVATIVES = 10
     __N_LAST_RES  = 5
-    __SAMPLES_PER_SECOND = 18.1818
+    __SAMPLES_PER_SECOND = 1.1363
+    __DERATIVE_MEAN_EPSILON = 0.0005
     __MAXIMUM_PROGRESS_BAR_TICKS = int(__MAXIMAL_TEST_TIME * __SAMPLES_PER_SECOND) + 1
 
     def __init__(self):
@@ -97,7 +133,9 @@ class Examinator():
             self._set_test_res(time_out=True)
             return
         if max(list(map(lambda x: abs(x),self.derivatives[-Examinator.__N_LAST_DERIVATIVES:]))) < Examinator.__DERIVATIVE_EPSILON:
-            self._set_test_res()
+            if not all( i > 0 for i in self.derivatives) and not all(i<0 for i in self.derivatives):
+                if  abs(statistics.mean(self.derivatives[-Examinator.__N_LAST_DERIVATIVES:])) < Examinator.__DERATIVE_MEAN_EPSILON:
+                    self._set_test_res()
 
     def _set_test_res(self,time_out= False):
         self.elapsed_time  = time.time() - self.start_time
@@ -108,7 +146,10 @@ class Examinator():
             self.finished_callback()
 
     def _add_point(self,val,derivative):
-        print('{} {}'.format(val,derivative))
+        mean_vals = 100
+        if  len(self.derivatives) >= Examinator.__N_LAST_DERIVATIVES:
+            mean_vals=statistics.mean(self.derivatives[-Examinator.__N_LAST_DERIVATIVES:])
+        print('{} {} {}'.format(val,derivative,mean_vals))
         self.points.append(val)
         self.derivatives.append(derivative)
         if self.progress_callback is not None:

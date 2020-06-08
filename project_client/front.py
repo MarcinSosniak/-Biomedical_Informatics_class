@@ -4,12 +4,23 @@ from tkinter.ttk import Progressbar
 import time
 from model import *
 import datetime
+import sys
+
+import matplotlib.pyplot as plt
 
 
 dc = DeviceController()
-dc.start()
+# dc.start()
 examinator = Examinator()
-dc.set_callback(examinator.get_callback())
+dc.set_examinator_callback(examinator.get_callback())
+
+
+DATE_TIME_FORMAT = '%Y-%m-%d %H:%M'
+
+
+def data_txt_line_to_date_object(line):
+    s_line = line.split()
+    return datetime.datetime.strptime(s_line[0] +' '+ s_line[1],DATE_TIME_FORMAT) , float(s_line[2][:-1])
 
 
 
@@ -20,7 +31,7 @@ class SampleApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
-        self.title_font = tkfont.Font(family='Helvetica', size=18, weight="bold", slant="italic")
+        self.title_font = tkfont.Font(family='Helvetica', size=12, weight="bold", slant="italic")
 
         # the container is where we'll stack a bunch of frames
         # on top of each other, then the one we want visible
@@ -51,32 +62,64 @@ class SampleApp(tk.Tk):
 
 
 class StartPage(tk.Frame):
-
+    COMS_PROGRESS_BAR_MAGNIFIER = 50
     def __init__(self, parent, controller):
+        self.button_to_page_one_enabled=False
+        self.button_to_page_two_enabled=False
         tk.Frame.__init__(self, parent)
         self.controller = controller
         label = tk.Label(self, text="This is the start page", font=controller.title_font)
         label.pack(side="top", fill="x", pady=10)
+        coms_len = dc.get_com_length()
+        print(coms_len)
         self.progress = Progressbar(self, orient=tk.HORIZONTAL,
-                               length=100, mode='determinate')
-        self.progress.pack()
+                               length=coms_len*StartPage.COMS_PROGRESS_BAR_MAGNIFIER, mode='determinate')
 
-        button1 = tk.Button(self, text="Make test",
-                            command=lambda: controller.show_frame("PageOne"))
-        button2 = tk.Button(self, text="View results",
-                            command=lambda: controller.show_frame("PageTwo"))
-        button3 = tk.Button(self,text="scan for device",command = self.animate_progress_bar)
-        button1.pack()
-        button2.pack()
-        button3.pack()
+        self.progress['value'] = 0
+        self.update_idletasks()
+        dc.set_scanner_callback(self.animate_progress_bar)
+
+        progres_infrom_label = tk.Label(self, text="Scanning for device...     ", font=controller.title_font)
+
+        self.go_to_page_one_button = tk.Button(self, text="Make test",
+                            command=self._go_to_page_one_func,fg='grey28',bg='gray63')
+        self.go_to_page_two_button = tk.Button(self, text="View results",
+                            command=self._go_to_page_two_func,fg='grey28',bg='gray63')
+        progres_infrom_label.pack()
+        self.progress.pack()
+        self.go_to_page_one_button.pack()
+        self.go_to_page_two_button.pack()
+
+        dc.com_scanner()
+        self.progress['value'] = coms_len*StartPage.COMS_PROGRESS_BAR_MAGNIFIER
+        progres_infrom_label.config(text = "Scanning for device... done")
+        self.enable_go_to_page_one_button()
+        self.enable_go_to_page_two_button()
+        self.update_idletasks()
+        print('self.progress[\'value\'] = {} '.format(self.progress['value']))
+        dc.start()
 
     def animate_progress_bar(self):
-        self.progress['value']= 0
+        self.progress['value'] =   self.progress['value'] +StartPage.COMS_PROGRESS_BAR_MAGNIFIER
         self.update_idletasks()
-        for i in range(1,10+1):
-            time.sleep(1)
-            self.progress['value']= 10*i
-            self.update_idletasks()
+
+    def _go_to_page_one_func(self):
+        if self.button_to_page_one_enabled:
+            return self.controller.show_frame("PageOne")
+
+    def enable_go_to_page_one_button(self):
+        self.button_to_page_one_enabled=True
+        self.go_to_page_one_button.config(fg='black', bg=self.cget('background'))
+
+    def _go_to_page_two_func(self):
+        if self.button_to_page_two_enabled:
+            return self.controller.show_frame("PageTwo")
+
+    def enable_go_to_page_two_button(self):
+        self.button_to_page_two_enabled=True
+        self.go_to_page_two_button.config(fg='black', bg=self.cget('background'))
+
+
 
     def activation(self):
         pass
@@ -89,21 +132,53 @@ class PageTwo(tk.Frame):
         label = tk.Label(self, text="This is page 1", font=controller.title_font)
         #label.pack(side="top", fill="x", pady=10)
         label.grid()
-        button = tk.Button(self, text="Go to the start page",
+        button1 = tk.Button(self, text="Go to the start page",
                            command=lambda: controller.show_frame("StartPage"))
         #button.pack()
-        button.grid()
+        button1.grid(row = 1, column = 0)
+        button2 = tk.Button(self, text="show graph",
+                           command=self.show_graph)
+        # button.pack()
+        button2.grid(row = 1, column = 1)
+        self.lines = None
+        self.last_n = 5
 
     def activation(self):
-        for i in range(len(test_list)):
-            for j in range(2):
-                b=tk.Label(self,text=test_list[i][j])
-                b.grid(row=i+PageOne.NON_TABLE_ELEMS,column=j)
+        self.lines = []
+        with open('data.txt','r') as f:
+            self.lines = list(f)
+        self.lines.reverse()
+        for i in range(len(self.lines)):
+            split_line = self.lines[i].split()
+
+            b = tk.Label(self, text=split_line[0] +' '+ split_line[1])
+            b.grid(row=i + PageTwo.NON_TABLE_ELEMS, column=0)
+            b = tk.Label(self, text=split_line[2] + 'C')
+            b.grid(row=i + PageTwo.NON_TABLE_ELEMS, column=1)
+        # for i in range(len(test_list)):
+        #     for j in range(2):
+        #         b=tk.Label(self,text=test_list[i][j])
+        #         b.grid(row=i+PageTwo.NON_TABLE_ELEMS,column=j)
+
+    def show_graph(self):
+        zipped_vals = list(map(data_txt_line_to_date_object,self.lines))
+        unzipped = list(zip(*zipped_vals))
+        plt.plot(unzipped[0],unzipped[1])
+        plt.xlabel('time')
+        plt.ylabel('temperature')
+        for elem in zipped_vals:
+            print(elem)
+            plt.plot(elem[0],elem[1],'bo')
+        plt.show()
+
+
+
 
 class PageOne(tk.Frame):
 
+    PROGRESSBAR_MAX_TICKS = 200
     def __init__(self, parent, controller):
-        self._enable_save_button= False;
+        self._enable_save_button= False
         tk.Frame.__init__(self, parent)
         self.controller = controller
         label = tk.Label(self, text="Tempartue Page", font=controller.title_font)
@@ -112,6 +187,9 @@ class PageOne(tk.Frame):
         self.label_temp.pack()
         self.label_time = tk.Label(self, text="Time")
         self.label_time.pack()
+
+        self.progress_bar_real_max_ticks= examinator.progress_bar_max_ticks()
+        self.progress_bar_current_ticks  =0
         button_back = tk.Button(self, text="Go to the start page",
                            command=lambda: controller.show_frame("StartPage"))
 
@@ -121,7 +199,7 @@ class PageOne(tk.Frame):
         # button_test.pack()
 
         self.progress = Progressbar(self, orient=tk.HORIZONTAL,
-                                    length=examinator.progress_bar_max_ticks(), mode='determinate')
+                                    length=PageOne.PROGRESSBAR_MAX_TICKS, mode='determinate')
 
         self.button_save = tk.Button(self,text='save result',command=self.save_result)
 
@@ -149,13 +227,15 @@ class PageOne(tk.Frame):
             return
         with open('data.txt','a+')as f:
             time_val = datetime.datetime.now()
-            f.write('( '+str(time_val.strftime('%Y-%m-%d %H:%M'))+' ) '+str(examinator.get_res())+'\n')
+            f.write(str(time_val.strftime(DATE_TIME_FORMAT))+str(" {:.2f}".format(examinator.get_res()))+'\n')
         self.disable_save_button()
 
     def inc_progress_bar(self):
         # print('inc progress bar called')
-        self.progress['value'] = self.progress['value'] + 1
+        self.progress_bar_current_ticks+=1
+        self.progress['value'] = int((self.progress_bar_current_ticks/float(self.progress_bar_real_max_ticks))*PageOne.PROGRESSBAR_MAX_TICKS)
         self.update_idletasks()
+        print(self.progress['value'])
 
     def finished_callback(self):
         if not examinator.f_ended_with_timeout():
@@ -163,7 +243,7 @@ class PageOne(tk.Frame):
         else:
             self.label_temp.config(text=str(examinator.get_res()) + ' C', bg='red')
         self.label_time.config(text=str(examinator.get_elapsed_time())+ ' s')
-        self.progress['value'] = examinator.progress_bar_max_ticks()
+        self.progress['value'] = PageOne.PROGRESSBAR_MAX_TICKS
         self.button_save.config(state=tk.NORMAL)
         self.enable_save_button()
         self.update_idletasks()
