@@ -11,7 +11,7 @@ class DeviceController(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.stable_derative = 0.05
-        self.COM = 'COM3'
+        self.COM = None
         self.line = None
         self.points= []
         self.time_stamps = []
@@ -47,7 +47,7 @@ class DeviceController(threading.Thread):
                     # print( b''.join(data_gathered).decode('ASCII'))
                     if DeviceController.DEVICE_TAG in  b''.join(data_gathered).decode('ASCII'):
                         self.COM = com
-                    return
+                        return
             except Exception as e:
                 print(str(e))
                 pass
