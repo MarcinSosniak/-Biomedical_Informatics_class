@@ -86,7 +86,7 @@ class DeviceController(threading.Thread):
 class Examinator():
     __MINIMAL_TEST_TIME = 15.0
     __DERIVATIVE_EPSILON = 0.01
-    __MAXIMAL_TEST_TIME = 240.0
+    __MAXIMAL_TEST_TIME = 12*60.0
     __N_LAST_DERIVATIVES = 10
     __N_LAST_RES  = 5
     __SAMPLES_PER_SECOND = 1.1363

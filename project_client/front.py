@@ -155,6 +155,8 @@ class PageTwo(tk.Frame):
             self.lines = list(f)
         self.lines.reverse()
         for i in range(len(self.lines)):
+            if i >= 10:
+                break
             split_line = self.lines[i].split()
 
             b = tk.Label(self, text=split_line[0] +' '+ split_line[1])
@@ -169,12 +171,20 @@ class PageTwo(tk.Frame):
     def show_graph(self):
         zipped_vals = list(map(data_txt_line_to_date_object,self.lines))
         unzipped = list(zip(*zipped_vals))
-        plt.plot(unzipped[0],unzipped[1])
+        if len(unzipped[0]) > 10:
+            plt.plot(unzipped[0][:10], unzipped[1][:10])
+        else:
+            plt.plot(unzipped[0],unzipped[1])
         plt.xlabel('time')
         plt.ylabel('temperature')
+        counter = 0
         for elem in zipped_vals:
+            if counter>=10:
+                break
             print(elem)
             plt.plot(elem[0],elem[1],'bo')
+            plt.annotate(str(elem[1]),(elem[0],elem[1]))
+            counter+=1
         plt.show()
 
 
