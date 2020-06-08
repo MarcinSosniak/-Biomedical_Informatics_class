@@ -23,6 +23,7 @@ def data_txt_line_to_date_object(line):
     return datetime.datetime.strptime(s_line[0] +' '+ s_line[1],DATE_TIME_FORMAT) , float(s_line[2][:-1])
 
 
+after_activation_fun = None
 
 test_list= [('17.02','36.7C'),('18.02','36.6C'),('19.02','37.5C'),('20.02','38.8C')]
 
@@ -70,10 +71,10 @@ class StartPage(tk.Frame):
         self.controller = controller
         label = tk.Label(self, text="This is the start page", font=controller.title_font)
         label.pack(side="top", fill="x", pady=10)
-        coms_len = dc.get_com_length()
-        print(coms_len)
+        self.coms_len = dc.get_com_length()
+        print(self.coms_len)
         self.progress = Progressbar(self, orient=tk.HORIZONTAL,
-                               length=coms_len*StartPage.COMS_PROGRESS_BAR_MAGNIFIER, mode='determinate')
+                               length=self.coms_len*StartPage.COMS_PROGRESS_BAR_MAGNIFIER, mode='determinate')
 
         self.progress['value'] = 0
         self.update_idletasks()
@@ -90,14 +91,16 @@ class StartPage(tk.Frame):
         self.go_to_page_one_button.pack()
         self.go_to_page_two_button.pack()
 
-        dc.com_scanner()
-        self.progress['value'] = coms_len*StartPage.COMS_PROGRESS_BAR_MAGNIFIER
+
+
         progres_infrom_label.config(text = "Scanning for device... done")
         self.enable_go_to_page_one_button()
         self.enable_go_to_page_two_button()
         self.update_idletasks()
         print('self.progress[\'value\'] = {} '.format(self.progress['value']))
-        dc.start()
+        global after_activation_fun
+        after_activation_fun = self.late_activation
+
 
     def animate_progress_bar(self):
         self.progress['value'] =   self.progress['value'] +StartPage.COMS_PROGRESS_BAR_MAGNIFIER
@@ -119,7 +122,10 @@ class StartPage(tk.Frame):
         self.button_to_page_two_enabled=True
         self.go_to_page_two_button.config(fg='black', bg=self.cget('background'))
 
-
+    def late_activation(self):
+        dc.com_scanner()
+        self.progress['value'] = self.coms_len * StartPage.COMS_PROGRESS_BAR_MAGNIFIER
+        dc.start()
 
     def activation(self):
         pass
@@ -268,4 +274,5 @@ class PageOne(tk.Frame):
 
 if __name__ == "__main__":
     app = SampleApp()
+    app.after(1,after_activation_fun)
     app.mainloop()
